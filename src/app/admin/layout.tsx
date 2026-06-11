@@ -28,22 +28,56 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "إعدادات المطعم", href: "/admin/settings", icon: Settings },
   ];
 
+  const [tenant, setTenant] = useState<any>(null);
+
   useEffect(() => {
     checkUser();
-  }, []);
+    // 🔙 Capacitor Back Button Handler
+    if (typeof window !== "undefined") {
+      import("@capacitor/app").then(({ App }) => {
+        App.addListener('backButton', () => {
+          if (pathname === '/admin' || pathname === '/') {
+            App.exitApp();
+          } else {
+            router.back();
+          }
+        });
+      });
+    }
+  }, [pathname]);
 
   async function checkUser() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       router.push("/login");
+    } else {
+      const { data: tenantData } = await supabase.from("tenants").select("*").eq("owner_id", session.user.id).single();
+      setTenant(tenantData);
     }
     setLoading(false);
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-400">جاري التحميل...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-400">جاري التحقق من الصلاحيات...</div>;
 
   return (
     <div className="flex min-h-screen bg-gray-50" dir="rtl">
+      {/* Subscription Protection Overlay */}
+      {tenant && tenant.subscription_status !== "Active" && (
+        <div className="fixed inset-0 z-[200] bg-[#1A1A1A]/90 backdrop-blur-md flex items-center justify-center p-6 text-center">
+            <div className="bg-white p-10 rounded-[3rem] max-w-md shadow-2xl space-y-6">
+                <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto animate-bounce">
+                    <Bell size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-gray-900">حسابك بانتظار التفعيل</h2>
+                <p className="text-gray-500 font-bold">شكراً لتسجيلك في منيو تيك! حسابك حالياً قيد المراجعة من قبل الإدارة. سيتم تفعيله فور التأكد من بياناتك واشتراكك.</p>
+                <div className="pt-4 space-y-3">
+                   <a href="https://wa.me/966XXXXXXXXX" className="block w-full bg-green-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-green-100">تواصل عبر الواتساب للتفعيل</a>
+                   <button onClick={() => supabase.auth.signOut().then(() => router.push("/"))} className="text-gray-400 font-bold text-sm">تسجيل الخروج</button>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div 
