@@ -1,273 +1,224 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Globe, Image as ImageIcon, Loader2, Camera } from "lucide-react";
+import { Plus, Trash2, Edit2, Image as ImageIcon, Loader2, Save, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function MenuManagement() {
-  const [activeTab, setActiveTab] = useState("categories");
   const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // Form State for Categories
-  const [newCatNameAr, setNewCatNameAr] = useState("");
-  const [newCatNameEn, setNewCatNameEn] = useState("");
+  const [tenant, setTenant] = useState<any>(null);
 
-  // Form State for Products
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [pNameAr, setPNameAr] = useState("");
-  const [pNameEn, setPNameEn] = useState("");
-  const [pDescAr, setPDescAr] = useState("");
-  const [pPrice, setPPrice] = useState("");
-  const [pCategoryId, setPCategoryId] = useState("");
-  const [pImagePreview, setPImagePreview] = useState("");
+  // Modals state
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [isProdModalOpen, setIsProdModalOpen] = useState(false);
+  const [activeCatId, setActiveCatId] = useState<string | null>(null);
 
-  // Fetch Data
+  const [newCat, setNewCat] = useState({ name_ar: "", name_en: "" });
+  const [newProd, setNewProd] = useState({ name_ar: "", name_en: "", price: 0, description_ar: "", category_id: "", image_url: "" });
+
   useEffect(() => {
-    fetchData();
-  }, [activeTab]);
+    fetchMenuData();
+  }, []);
 
-  async function fetchData() {
+  async function fetchMenuData() {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Get the tenant ID for the current owner
-    const { data: tenant } = await supabase.from("tenants").select("id").eq("owner_id", session.user.id).single();
-    if (!tenant) { setLoading(false); return; }
-
-    if (activeTab === "categories") {
-      const { data } = await supabase.from("categories").select("*").eq("tenant_id", tenant.id).order("sort_order");
-      setCategories(data || []);
-    } else {
-      const { data: cats } = await supabase.from("categories").select("*").eq("tenant_id", tenant.id);
-      const { data: prods } = await supabase.from("products").select("*, categories(name_ar)").eq("tenant_id", tenant.id);
+    const { data: tenantData } = await supabase.from("tenants").select("*").eq("owner_id", session.user.id).single();
+    if (tenantData) {
+      setTenant(tenantData);
+      const { data: cats } = await supabase.from("categories").select("*").eq("tenant_id", tenantData.id).order("sort_order");
+      const { data: prods } = await supabase.from("products").select("*").eq("tenant_id", tenantData.id);
       setCategories(cats || []);
       setProducts(prods || []);
     }
     setLoading(false);
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function handleAddCategory() {
+    if (!newCat.name_ar) return;
+    const { error } = await supabase.from("categories").insert([{ ...newCat, tenant_id: tenant.id }]);
+    if (!error) {
+        setIsCatModalOpen(false);
+        setNewCat({ name_ar: "", name_en: "" });
+        fetchMenuData();
+    }
+  }
+
+  async function handleDeleteCategory(id: string) {
+    if (confirm("هل أنت متأكد من حذف هذا القسم؟ سيتم حذف جميع الوجبات بداخله!")) {
+        await supabase.from("products").delete().eq("category_id", id);
+        await supabase.from("categories").delete().eq("id", id);
+        fetchMenuData();
+    }
+  }
+
+  async function handleAddProduct() {
+    if (!newProd.name_ar || !newProd.price) return;
+    const { error } = await supabase.from("products").insert([{ ...newProd, tenant_id: tenant.id, category_id: activeCatId }]);
+    if (!error) {
+        setIsProdModalOpen(false);
+        setNewProd({ name_ar: "", name_en: "", price: 0, description_ar: "", category_id: "", image_url: "" });
+        fetchMenuData();
+    }
+  }
+
+  async function handleDeleteProduct(id: string) {
+    if (confirm("حذف هذه الوجبة؟")) {
+        await supabase.from("products").delete().eq("id", id);
+        fetchMenuData();
+    }
+  }
+
+  async function uploadImage(e: any, productId?: string) {
+    const file = e.target.files[0];
     if (!file) return;
 
-    setLoading(true);
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `products/${fileName}`;
+    const filePath = `${tenant.id}/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage.from('restaurants').upload(filePath, file);
+    const { error: uploadError } = await supabase.storage
+      .from('menu-images')
+      .upload(filePath, file);
 
     if (!uploadError) {
-      const { data: { publicUrl } } = supabase.storage.from('restaurants').getPublicUrl(filePath);
-      setPImagePreview(publicUrl);
-    }
-    setLoading(false);
-  }
-
-  async function handleAddCategory(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const { data: tenant } = await supabase.from("tenants").select("id").eq("owner_id", session?.user.id).single();
-
-    const { error } = await supabase.from("categories").insert([
-      { name_ar: newCatNameAr, name_en: newCatNameEn, tenant_id: tenant?.id }
-    ]);
-
-    if (!error) {
-      setNewCatNameAr(""); setNewCatNameEn(""); setIsModalOpen(false);
-      fetchData();
-    }
-    setLoading(false);
-  }
-
-  async function handleAddProduct(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const { data: tenant } = await supabase.from("tenants").select("id").eq("owner_id", session?.user.id).single();
-    
-    const { error } = await supabase.from("products").insert([
-      { 
-        name_ar: pNameAr, 
-        name_en: pNameEn, 
-        description_ar: pDescAr,
-        price: parseFloat(pPrice),
-        category_id: pCategoryId,
-        tenant_id: tenant?.id,
-        image_url: pImagePreview
+      const { data } = supabase.storage.from('menu-images').getPublicUrl(filePath);
+      if (productId) {
+         await supabase.from("products").update({ image_url: data.publicUrl }).eq("id", productId);
+         fetchMenuData();
+      } else {
+         setNewProd({...newProd, image_url: data.publicUrl});
       }
-    ]);
-
-    if (!error) {
-      setPNameAr(""); setPNameEn(""); setPPrice(""); setPCategoryId(""); setPDescAr(""); setPImagePreview("");
-      setIsProductModalOpen(false);
-      fetchData();
     }
-    setLoading(false);
   }
+
+  if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-primary" size={40} /></div>;
 
   return (
-    <div className="space-y-10" dir="rtl">
+    <div className="space-y-8" dir="rtl">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 leading-tight">إدارة المنيو الرقمي</h1>
-          <p className="text-gray-500 font-bold">أضف وجباتك اللذيذة وصنفها باحترافية.</p>
+          <h1 className="text-2xl font-black text-gray-900">إدارة القائمة (المنيو)</h1>
+          <p className="text-gray-500 font-bold text-sm">أضف أقسامك ووجباتك وصورها الاحترافية هنا.</p>
         </div>
         <button 
-          onClick={() => activeTab === "categories" ? setIsModalOpen(true) : setIsProductModalOpen(true)}
-          className="bg-gray-900 text-white px-8 py-4 rounded-[2rem] font-black flex items-center gap-2 shadow-2xl hover:scale-105 transition-all text-sm"
+            onClick={() => setIsCatModalOpen(true)}
+            className="bg-primary text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
         >
-          <Plus size={20} />
-          {activeTab === "categories" ? "إضافة قسم جديد" : "إضافة منتج جديد"}
+            <Plus size={20} /> إضافة قسم جديد
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-4 p-2 bg-gray-100/50 rounded-[2rem] w-fit">
-        <button 
-          onClick={() => setActiveTab("categories")}
-          className={`px-8 py-3 rounded-2xl text-xs font-black transition-all ${
-            activeTab === "categories" ? "bg-white text-primary shadow-sm" : "text-gray-400 hover:text-gray-600"
-          }`}
-        >الأقسام</button>
-        <button 
-          onClick={() => setActiveTab("products")}
-          className={`px-8 py-3 rounded-2xl text-xs font-black transition-all ${
-            activeTab === "products" ? "bg-white text-primary shadow-sm" : "text-gray-400 hover:text-gray-600"
-          }`}
-        >المنتجات</button>
-      </div>
+      <div className="space-y-10">
+        {categories.map((cat) => (
+          <div key={cat.id} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden">
+            <div className="bg-gray-50 px-8 py-6 flex justify-between items-center border-b border-gray-100">
+               <h3 className="text-xl font-black text-gray-900">{cat.name_ar}</h3>
+               <div className="flex gap-2">
+                  <button 
+                    onClick={() => { setActiveCatId(cat.id); setIsProdModalOpen(true); }}
+                    className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+                  >
+                    <Plus size={20} />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteCategory(cat.id)}
+                    className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+               </div>
+            </div>
 
-      {/* Table Content */}
-      <div className="bg-white rounded-[3rem] border border-gray-100 shadow-xl overflow-hidden min-h-[400px]">
-        {loading ? (
-          <div className="flex-1 flex justify-center py-20"><Loader2 className="animate-spin text-gray-200" size={48} /></div>
-        ) : activeTab === "categories" ? (
-          <table className="w-full text-right font-bold">
-            <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-black uppercase">
-              <tr>
-                <th className="px-8 py-5">اسم القسم (عربي / En)</th>
-                <th className="px-8 py-5 text-left">الإجراء</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {categories.map(item => (
-                <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-8 py-6 flex items-center gap-3">
-                    <div className="w-2 bg-primary h-6 rounded-full"></div>
-                    {item.name_ar} / {item.name_en}
-                  </td>
-                  <td className="px-8 py-6 text-left">
-                    <button className="text-red-400 hover:text-red-600"><Trash2 size={18}/></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <table className="w-full text-right font-bold">
-            <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-black uppercase">
-              <tr>
-                <th className="px-8 py-5">المنتج</th>
-                <th className="px-8 py-5">القسم</th>
-                <th className="px-8 py-5">السعر</th>
-                <th className="px-8 py-5 text-left">الإجراء</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {products.map(item => (
-                <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-8 py-5 flex items-center gap-4">
-                    <div className="w-14 h-14 bg-gray-50 rounded-2xl border flex items-center justify-center overflow-hidden">
-                        {item.image_url ? <img src={item.image_url} className="w-full h-full object-cover" /> : <ImageIcon size={20} className="text-gray-200" />}
+            <div className="p-8">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {products.filter(p => p.category_id === cat.id).map(product => (
+                    <div key={product.id} className="bg-gray-50 rounded-3xl p-4 flex gap-4 border border-gray-100 group relative">
+                        <div className="w-24 h-24 bg-white rounded-2xl overflow-hidden border border-gray-100 relative shadow-inner">
+                            {product.image_url ? <img src={product.image_url} className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-gray-300 absolute inset-0 m-auto" />}
+                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => uploadImage(e, product.id)} />
+                        </div>
+                        <div className="flex-1 flex flex-col justify-between py-1">
+                            <div>
+                                <h4 className="font-black text-gray-900 text-sm">{product.name_ar}</h4>
+                                <p className="text-[10px] text-gray-400 font-bold line-clamp-1">{product.description_ar || "لا يوجد وصف"}</p>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="font-black text-primary text-sm">{product.price} ر.س</span>
+                                <button onClick={() => handleDeleteProduct(product.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
+                            </div>
+                        </div>
                     </div>
-                    <span>{item.name_ar}</span>
-                  </td>
-                  <td className="px-8 py-5 text-gray-400 font-medium text-xs">{item.categories?.name_ar}</td>
-                  <td className="px-8 py-5 text-primary font-black">{item.price} ر.س</td>
-                  <td className="px-8 py-5 text-left">
-                    <button className="text-red-400 hover:text-red-600"><Trash2 size={18}/></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                  ))}
+                  <button 
+                    onClick={() => { setActiveCatId(cat.id); setIsProdModalOpen(true); }}
+                    className="border-2 border-dashed border-gray-200 rounded-3xl p-8 flex flex-col items-center justify-center text-gray-300 hover:text-primary hover:border-primary/30 transition-all font-bold gap-2"
+                  >
+                        <Plus size={32} />
+                        <span className="text-xs">إضافة صنف لهذا القسم</span>
+                  </button>
+               </div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Modal for Categories */}
-       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3rem] p-10 w-full max-w-md shadow-2xl border border-gray-100">
-            <h2 className="text-2xl font-black mb-8 underline decoration-primary decoration-4">إضافة قسم جديد</h2>
-            <form onSubmit={handleAddCategory} className="space-y-6">
-              <input required value={newCatNameAr} onChange={(e) => setNewCatNameAr(e.target.value)} placeholder="اسم القسم (عربي)" className="w-full bg-gray-50 border-gray-100 border p-5 rounded-2xl outline-none font-bold" />
-              <input value={newCatNameEn} onChange={(e) => setNewCatNameEn(e.target.value)} placeholder="Category Name (En)" className="w-full bg-gray-50 border-gray-100 border p-5 rounded-2xl outline-none font-bold" />
-              <div className="flex gap-4 pt-4">
-                <button type="submit" className="flex-1 bg-gray-900 text-white p-5 rounded-2xl font-black">إضافة</button>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-50 text-gray-400 p-5 rounded-2xl font-black">إلغاء</button>
-              </div>
-            </form>
-          </div>
+      {/* Modals - Simplified for brevity but fully functional */}
+      {isCatModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6" dir="rtl">
+            <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl space-y-6">
+                <h3 className="text-2xl font-black">إضافة قسم جديد</h3>
+                <input 
+                    placeholder="اسم القسم (مثلاً: مشويات)" 
+                    className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-gray-900 border border-gray-100 focus:border-primary"
+                    value={newCat.name_ar}
+                    onChange={(e) => setNewCat({...newCat, name_ar: e.target.value})}
+                />
+                <div className="flex gap-4">
+                    <button onClick={handleAddCategory} className="flex-1 bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/20">حفظ القسم</button>
+                    <button onClick={() => setIsCatModalOpen(false)} className="px-6 py-4 bg-gray-100 rounded-2xl font-black">إلغاء</button>
+                </div>
+            </div>
         </div>
       )}
 
-      {/* Modal for Products */}
-      {isProductModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3rem] p-10 w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-black mb-8">إضافة منتج جديد</h2>
-            <form onSubmit={handleAddProduct} className="space-y-6 font-bold">
-              {/* Image Input */}
-              <div className="flex items-center justify-center">
-                 <div className="w-full h-48 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-100 flex items-center justify-center relative overflow-hidden">
-                    {pImagePreview ? <img src={pImagePreview} className="w-full h-full object-cover" /> : (
-                        <div className="flex flex-col items-center gap-2 text-gray-300">
-                            <Camera size={32} />
-                            <span className="text-xs">ارفع صورة لذيذة للوجبة</span>
-                        </div>
-                    )}
-                    <input type="file" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-right">
-                <div className="space-y-1">
-                    <label className="text-[10px] text-gray-400 pr-2">اسم الوجبة</label>
-                    <input required value={pNameAr} onChange={(e) => setPNameAr(e.target.value)} className="w-full bg-gray-50 border-gray-100 border p-4 rounded-2xl outline-none" />
+      {isProdModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6" dir="rtl">
+            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl space-y-6">
+                <h3 className="text-2xl font-black">إضافة وجبة جديدة</h3>
+                <div className="space-y-4">
+                    <input 
+                        placeholder="اسم الوجبة" 
+                        className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-gray-900 border border-gray-100"
+                        value={newProd.name_ar}
+                        onChange={(e) => setNewProd({...newProd, name_ar: e.target.value})}
+                    />
+                    <div className="flex gap-4">
+                        <input 
+                            placeholder="السعر" 
+                            type="number"
+                            className="flex-1 p-4 bg-gray-50 rounded-2xl outline-none font-bold text-gray-900 border border-gray-100"
+                            value={newProd.price}
+                            onChange={(e) => setNewProd({...newProd, price: parseFloat(e.target.value)})}
+                        />
+                        <div className="w-20 h-14 bg-gray-100 rounded-2xl flex items-center justify-center text-xs font-black">ر.س</div>
+                    </div>
+                    <textarea 
+                        placeholder="وصف الوجبة (اختياري)" 
+                        className="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-gray-900 border border-gray-100 h-24"
+                        value={newProd.description_ar}
+                        onChange={(e) => setNewProd({...newProd, description_ar: e.target.value})}
+                    />
                 </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] text-gray-400 pr-2">English Name</label>
-                    <input value={pNameEn} onChange={(e) => setPNameEn(e.target.value)} className="w-full bg-gray-50 border-gray-100 border p-4 rounded-2xl outline-none" />
+                <div className="flex gap-4">
+                    <button onClick={handleAddProduct} className="flex-1 bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/20">إضافة للمنيو</button>
+                    <button onClick={() => setIsProdModalOpen(false)} className="px-6 py-4 bg-gray-100 rounded-2xl font-black">إلغاء</button>
                 </div>
-              </div>
-
-              <div className="space-y-1 text-right">
-                <label className="text-[10px] text-gray-400 pr-2">القسم</label>
-                <select required value={pCategoryId} onChange={(e) => setPCategoryId(e.target.value)} className="w-full bg-gray-50 border-gray-100 border p-4 rounded-2xl outline-none appearance-none">
-                    <option value="">اختر قسماً...</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name_ar}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-1 text-right">
-                <label className="text-[10px] text-gray-400 pr-2">السعر (ر.س)</label>
-                <input required type="number" step="0.01" value={pPrice} onChange={(e) => setPPrice(e.target.value)} className="w-full bg-gray-50 border-gray-100 border p-4 rounded-2xl outline-none" />
-              </div>
-
-              <div className="flex gap-4 pt-6">
-                <button type="submit" disabled={loading} className="flex-1 bg-gray-900 text-white p-5 rounded-[2rem] font-black shadow-xl">
-                    {loading ? <Loader2 className="animate-spin mx-auto" /> : "إضافة للـمنيو"}
-                </button>
-                <button type="button" onClick={() => setIsProductModalOpen(false)} className="flex-1 bg-gray-100 text-gray-400 p-5 rounded-[2rem] font-black">إلغاء</button>
-              </div>
-            </form>
-          </div>
+            </div>
         </div>
       )}
     </div>
