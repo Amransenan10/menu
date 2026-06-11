@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Store, TrendingUp, CreditCard, ExternalLink, ShieldCheck, Loader2 } from "lucide-react";
+import { Users, Store, TrendingUp, CreditCard, ExternalLink, ShieldCheck, Loader2, Palette } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
 export default function SuperAdminDashboard() {
   const [tenants, setTenants] = useState<any[]>([]);
@@ -41,8 +42,13 @@ export default function SuperAdminDashboard() {
           </h1>
           <p className="text-gray-500">إدارة الاشتراكات والمطاعم المسجلة في منيو تيك.</p>
         </div>
-        <div className="bg-white px-6 py-2 rounded-2xl border font-bold text-sm">
-            إجمالي المطاعم: {tenants.length}
+        <div className="flex gap-4">
+            <Link href="/super-admin/cms" className="bg-gray-900 text-white px-6 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 hover:scale-105 transition-transform">
+                <Palette size={16} /> تحكم الواجهة
+            </Link>
+            <div className="bg-white px-6 py-2 rounded-2xl border font-bold text-sm">
+                إجمالي المطاعم: {tenants.length}
+            </div>
         </div>
       </div>
 
