@@ -11,9 +11,12 @@ export default function RestaurantMenuClient({ params }: { params: { slug: strin
   const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cart, setCart] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [cartCount, setCartCount] = useState(0);
+
+  const cartCount = cart.length;
+  const totalPrice = cart.reduce((sum, item) => sum + item.price, 0);
 
   useEffect(() => {
     fetchTenantData();
@@ -35,22 +38,26 @@ export default function RestaurantMenuClient({ params }: { params: { slug: strin
     setLoading(false);
   }
 
+  function addToCart(product: any) {
+    setCart([...cart, product]);
+  }
+
   async function submitOrder() {
-    if (cartCount === 0 || isSubmitting) return;
+    if (cart.length === 0 || isSubmitting) return;
     setIsSubmitting(true);
     
     const { error } = await supabase.from("orders").insert([
       {
         tenant_id: tenant.id,
-        table_number: Math.floor(Math.random() * 20 + 1).toString(), 
-        total_price: cartCount * 30,
+        table_number: "جوال", // يمكن تغييرها لاحقاً
+        total_price: totalPrice,
         status: "pending"
       }
     ]);
 
     if (!error) {
       alert(lang === "ar" ? "✅ تم إرسال طلبك بنجاح!" : "✅ Order sent successfully!");
-      setCartCount(0);
+      setCart([]);
     }
     setIsSubmitting(false);
   }
@@ -145,7 +152,7 @@ export default function RestaurantMenuClient({ params }: { params: { slug: strin
                                     <div className="flex justify-between items-center">
                                         <div className="text-xl font-black" style={{ color: primaryColor }}>{product.price}<span className="text-[10px] mr-1 opacity-60">ر.س</span></div>
                                         <button 
-                                            onClick={() => setCartCount(c => c + 1)}
+                                            onClick={() => addToCart(product)}
                                             className="w-12 h-12 rounded-[1.25rem] flex items-center justify-center text-white shadow-lg active:scale-90 transition-all font-black text-xl"
                                             style={{ backgroundColor: primaryColor, boxShadow: `0 8px 20px -8px ${primaryColor}` }}
                                         >
@@ -168,7 +175,7 @@ export default function RestaurantMenuClient({ params }: { params: { slug: strin
             {/* Loyalty Badge */}
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-2xl shadow-xl border border-primary/20 w-fit mx-auto flex items-center gap-2">
                 <div className="bg-primary/20 p-1.5 rounded-lg text-primary"><Star size={14} className="fill-primary" /></div>
-                <span className="text-[10px] font-black text-gray-700">ستربح <span className="text-primary">{cartCount * 30} نقطة</span> من هذا الطلب!</span>
+                <span className="text-[10px] font-black text-gray-700">ستربح <span className="text-primary">{Math.floor(totalPrice)} نقطة</span> من هذا الطلب!</span>
             </motion.div>
 
             <button 

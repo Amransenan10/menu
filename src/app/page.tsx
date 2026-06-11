@@ -48,8 +48,8 @@ export default function Home() {
           <a href="#pricing" className="hover:text-primary transition-colors">الأسعار</a>
         </div>
         <div className="flex gap-3">
-          <Link href="/admin" className="px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-all">دخول</Link>
-          <button className="px-6 py-2.5 text-sm text-white bg-primary rounded-xl hover:bg-primary-dark shadow-xl shadow-primary/20 transition-all">ابدأ مجاناً</button>
+          <Link href="/login" className="px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-all">دخول</Link>
+          <Link href="/register" className="px-6 py-2.5 text-sm text-white bg-primary rounded-xl hover:bg-primary-dark shadow-xl shadow-primary/20 transition-all flex items-center justify-center">ابدأ مجاناً</Link>
         </div>
       </nav>
 
@@ -69,12 +69,12 @@ export default function Home() {
              من المنيو الرقمي إلى أنظمة الولاء والتحكم بالفروع، "منيو تيك" هو شريكك لنمو مطعمك وزيادة مبيعاتك.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <button className="bg-gray-900 text-white px-10 py-5 rounded-2xl text-lg font-black shadow-2xl shadow-black/10 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 justify-center">
+            <Link href="/register" className="bg-gray-900 text-white px-10 py-5 rounded-2xl text-lg font-black shadow-2xl shadow-black/10 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 justify-center">
               اشترك الآن <ArrowRight size={20} className="rotate-180" />
-            </button>
-            <button className="bg-white border-2 border-gray-100 text-gray-700 px-10 py-5 rounded-2xl text-lg font-black hover:bg-gray-50 transition-all">
+            </Link>
+            <Link href="/r/default" className="bg-white border-2 border-gray-100 text-gray-700 px-10 py-5 rounded-2xl text-lg font-black hover:bg-gray-50 transition-all flex items-center justify-center">
               شاهد مثال مباشر
-            </button>
+            </Link>
           </div>
         </motion.div>
       </section>
@@ -161,11 +161,11 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <button className={`w-full py-5 rounded-[2rem] font-black transition-all text-lg ${
+                <Link href="/register" className={`w-full py-5 rounded-[2rem] font-black transition-all text-lg flex items-center justify-center ${
                   plan.recommend ? "bg-primary text-white hover:bg-primary-dark shadow-2xl shadow-primary/30" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}>
                   ابدأ التجربة
-                </button>
+                </Link>
               </div>
             ))}
           </div>
@@ -179,18 +179,18 @@ export default function Home() {
                <div className="text-3xl font-black text-gray-900 tracking-tighter mb-4">منيو تيك</div>
                <p className="text-gray-400 text-sm max-w-xs leading-relaxed font-medium">المنصة الشاملة لإدارة المطاعم وزيادة المبيعات عبر الحلول الرقمية الذكية.</p>
            </div>
-           <div className="flex gap-12 font-bold text-sm text-gray-600">
+            <div className="flex gap-12 font-bold text-sm text-gray-600">
                 <div className="space-y-3 flex flex-col">
                     <span className="text-gray-900 font-black mb-2">المنتج</span>
-                    <a href="#" className="hover:text-primary">نظام المنيو</a>
-                    <a href="#" className="hover:text-primary">نظام الولاء</a>
-                    <a href="#" className="hover:text-primary">إدارة الفروع</a>
+                    <Link href="#features" className="hover:text-primary transition-colors">المميزات</Link>
+                    <Link href="#loyalty" className="hover:text-primary transition-colors">نظام الولاء</Link>
+                    <Link href="#pricing" className="hover:text-primary transition-colors">الأسعار</Link>
                 </div>
                 <div className="space-y-3 flex flex-col">
-                    <span className="text-gray-900 font-black mb-2">الدعم</span>
-                    <a href="#" className="hover:text-primary">تواصل معنا</a>
-                    <a href="#" className="hover:text-primary">الأسئلة الشائعة</a>
-                    <a href="#" className="hover:text-primary">التوثيق</a>
+                    <span className="text-gray-900 font-black mb-2">الحساب</span>
+                    <Link href="/login" className="hover:text-primary transition-colors">تسجيل الدخول</Link>
+                    <Link href="/register" className="hover:text-primary transition-colors">إنشاء مطعم جديد</Link>
+                    <Link href="/r/default" className="hover:text-primary transition-colors">شاهد مثال مباشر</Link>
                 </div>
            </div>
            <div className="flex flex-col items-center md:items-end gap-4">
