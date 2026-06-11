@@ -21,8 +21,12 @@ export default function LandingPage() {
   }, []);
 
   async function fetchSettings() {
-      const { data } = await supabase.from("site_settings").select("*").single();
-      if (data) setSettings(data);
+      try {
+        const { data } = await supabase.from("site_settings").select("*").single();
+        if (data) setSettings(data);
+      } catch (err) {
+        console.log("Settings not found yet");
+      }
   }
 
   const plans = [
